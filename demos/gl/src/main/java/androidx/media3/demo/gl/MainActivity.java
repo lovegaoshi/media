@@ -35,17 +35,23 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.datasource.HttpDataSource;
+import androidx.media3.datasource.okhttp.OkHttpDataSource;
+import androidx.media3.datasource.okhttp.OkHttpDataSourceFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.dash.DashMediaSource;
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManager;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.drm.FrameworkMediaDrm;
 import androidx.media3.exoplayer.drm.HttpMediaDrmCallback;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.ui.PlayerView;
 import java.util.UUID;
+import okhttp3.Call;
+import okhttp3.OkHttpClient;
 
 /**
  * Activity that demonstrates playback of video to an {@link android.opengl.GLSurfaceView} with
@@ -67,6 +73,8 @@ public final class MainActivity extends Activity {
   @Nullable private VideoProcessingGLSurfaceView videoProcessingGLSurfaceView;
 
   @Nullable private ExoPlayer player;
+
+  private OkHttpClient okHttpClient = new OkHttpClient();
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -159,6 +167,8 @@ public final class MainActivity extends Activity {
     }
 
     DataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(this);
+    HttpDataSource.Factory dsf = new OkHttpDataSource.Factory(
+        (Call.Factory) new OkHttpClient.Builder().build());
     MediaSource mediaSource;
     @Nullable String fileExtension = intent.getStringExtra(EXTENSION_EXTRA);
     @C.ContentType
@@ -166,22 +176,16 @@ public final class MainActivity extends Activity {
         TextUtils.isEmpty(fileExtension)
             ? Util.inferContentType(uri)
             : Util.inferContentTypeForExtension(fileExtension);
-    if (type == C.CONTENT_TYPE_DASH) {
-      mediaSource =
-          new DashMediaSource.Factory(dataSourceFactory)
-              .setDrmSessionManagerProvider(unusedMediaItem -> drmSessionManager)
-              .createMediaSource(MediaItem.fromUri(uri));
-    } else if (type == C.CONTENT_TYPE_OTHER) {
-      mediaSource =
-          new ProgressiveMediaSource.Factory(dataSourceFactory)
-              .setDrmSessionManagerProvider(unusedMediaItem -> drmSessionManager)
-              .createMediaSource(MediaItem.fromUri(uri));
-    } else {
-      throw new IllegalStateException();
-    }
+    mediaSource =
+        new ProgressiveMediaSource.Factory(dsf)
+            .createMediaSource(MediaItem.fromUri(uri));
 
-    ExoPlayer player = new ExoPlayer.Builder(getApplicationContext()).build();
-    player.setRepeatMode(Player.REPEAT_MODE_ALL);
+    DefaultMediaSourceFactory defaultMediaSourceFactory = new DefaultMediaSourceFactory(this)
+        .setDataSourceFactory(new OkHttpDataSourceFactory((Call.Factory) okHttpClient, null));
+
+    ExoPlayer player = new ExoPlayer.Builder(getApplicationContext()).
+        setMediaSourceFactory(defaultMediaSourceFactory).build();
+    player.setRepeatMode(Player.REPEAT_MODE_ONE);
     player.setMediaSource(mediaSource);
     player.prepare();
     player.play();

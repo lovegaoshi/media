@@ -27,7 +27,7 @@ android {
     defaultConfig {
         versionName project.ext.releaseVersion
         versionCode project.ext.releaseVersionCode
-        minSdkVersion project.ext.minSdkVersion
+        minSdkVersion 21
         targetSdkVersion project.ext.appTargetSdkVersion
         multiDexEnabled true
     }
@@ -56,5 +56,7 @@ dependencies {
     implementation project(modulePrefix + 'lib-ui')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
+    implementation project(':lib-datasource-okhttp')
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
+    implementation 'com.squareup.okhttp3:okhttp:4.11.0'
 }
