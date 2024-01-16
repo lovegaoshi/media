@@ -32,10 +32,14 @@ import androidx.media3.common.Player;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Util;
+import androidx.media3.database.StandaloneDatabaseProvider;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.datasource.HttpDataSource;
+import androidx.media3.datasource.cache.CacheDataSource;
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor;
+import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.datasource.okhttp.OkHttpDataSource;
 import androidx.media3.datasource.okhttp.OkHttpDataSourceFactory;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -49,6 +53,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.ui.PlayerView;
+import java.io.File;
 import java.util.UUID;
 import okhttp3.Call;
 import okhttp3.OkHttpClient;
@@ -176,12 +181,18 @@ public final class MainActivity extends Activity {
         TextUtils.isEmpty(fileExtension)
             ? Util.inferContentType(uri)
             : Util.inferContentTypeForExtension(fileExtension);
-    mediaSource =
-        new ProgressiveMediaSource.Factory(dsf)
-            .createMediaSource(MediaItem.fromUri(uri));
 
+
+    SimpleCache simpleCache = new SimpleCache(new File(this.getCacheDir(), "RNVCache"), new LeastRecentlyUsedCacheEvictor(200*1024*1024), new StandaloneDatabaseProvider(this));
+    DataSource.Factory cacheDataSourceFactory =
+        new CacheDataSource.Factory()
+            .setCache(simpleCache)
+            .setUpstreamDataSourceFactory(dsf);
     DefaultMediaSourceFactory defaultMediaSourceFactory = new DefaultMediaSourceFactory(this)
-        .setDataSourceFactory(new OkHttpDataSourceFactory((Call.Factory) okHttpClient, null));
+        .setDataSourceFactory(cacheDataSourceFactory);
+    mediaSource =
+        new ProgressiveMediaSource.Factory(cacheDataSourceFactory)
+            .createMediaSource(MediaItem.fromUri(uri));
 
     ExoPlayer player = new ExoPlayer.Builder(getApplicationContext()).
         setMediaSourceFactory(defaultMediaSourceFactory).build();
